@@ -480,10 +480,12 @@ export function buildVariableNameMap(variables: any[], collections?: any[]): Map
  * the file name — never the author's home directory layout.
  */
 export function displayPath(path: string, root?: string): string {
-	if (!isAbsolute(path)) return path;
+	if (!isAbsolute(path)) return path.replace(/\\/g, "/");
 	if (root) {
 		const rel = relative(root, path);
-		if (rel && !rel.startsWith("..") && !isAbsolute(rel)) return rel;
+		if (rel && !rel.startsWith("..") && !isAbsolute(rel)) {
+			return rel.replace(/\\/g, "/");
+		}
 	}
 	return basename(path);
 }

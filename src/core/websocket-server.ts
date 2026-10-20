@@ -312,21 +312,26 @@ export class FigmaWebSocketServer extends EventEmitter {
           server: this.httpServer,
           maxPayload: 100 * 1024 * 1024, // 100MB — screenshots and large component data can be big
           verifyClient: (info, callback) => {
-            // Mitigate Cross-Site WebSocket Hijacking (CSWSH):
-            // Reject connections from unexpected browser origins.
+            // Mitigate Cross-Site WebSocket Hijacking (CSWSH) and unauthorized external access:
+            // Enforce loopback connection and authorized origins.
+            const remoteAddr = info.req.socket.remoteAddress;
+            const isLoopback =
+              !remoteAddr ||
+              remoteAddr === '127.0.0.1' ||
+              remoteAddr === '::1' ||
+              remoteAddr === '::ffff:127.0.0.1';
             const origin = info.origin;
-            // Exact match only — startsWith would let e.g.
-            // https://www.figma.com.attacker.example through.
-            const allowed =
-              !origin ||                           // No origin — local process (e.g. Node.js client)
-              origin === 'null' ||                  // Sandboxed iframe / Figma Desktop plugin UI
+            const allowedOrigin =
+              !origin ||
+              origin === 'null' ||
               origin === 'https://www.figma.com' ||
               origin === 'https://figma.com';
+            const allowed = isLoopback && allowedOrigin;
             if (allowed) {
               callback(true);
             } else {
-              logger.warn({ origin }, 'Rejected WebSocket connection from unauthorized origin');
-              callback(false, 403, 'Unauthorized Origin');
+              logger.warn({ origin, remoteAddr }, 'Rejected WebSocket connection from unauthorized origin or external IP');
+              callback(false, 403, 'Unauthorized Connection');
             }
           },
         });
